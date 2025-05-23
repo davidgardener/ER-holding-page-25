@@ -61,90 +61,98 @@
   <script id="fragShader" type="x-shader/x-fragment">
 
 
+#ifdef GL_ES
+precision mediump float;
+#endif
 
-  precision mediump float;
 uniform float u_time;
 uniform vec2 u_resolution;
 
-// Simple 3D noise (faster, less detailed)
-float hash(vec3 p) {
-    p = fract(p * 0.3183099 + .1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-float noise(vec3 p) {
-    vec3 i = floor(p);
-    vec3 f = fract(p);
-    f = f*f*(3.0-2.0*f);
-    float n = mix(
-        mix(
-            mix(hash(i), hash(i+vec3(1,0,0)), f.x),
-            mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x),
-            f.y
-        ),
-        mix(
-            mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
-            mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x),
-            f.y
-        ),
-        f.z
-    );
-    return n;
+// --- Colormap functions ---
+float colormap_red(float x) {
+    if (x < 0.0) {
+        return 54.0 / 255.0;
+    } else if (x < 20049.0 / 82979.0) {
+        return (829.79 * x + 54.51) / 255.0;
+    } else {
+        return 1.0;
+    }
 }
 
-float map(vec3 p) {
-    float tunnel = length(p.xy) - 4.0;
-    float n = noise(p * 0.5 + u_time * 0.2) * 1.5;
-    return tunnel + n;
+float colormap_green(float x) {
+    if (x < 20049.0 / 82979.0) {
+        return 0.0;
+    } else if (x < 327013.0 / 810990.0) {
+        return (8546482679670.0 / 10875673217.0 * x - 2064961390770.0 / 10875673217.0) / 255.0;
+    } else if (x <= 1.0) {
+        return (103806720.0 / 483977.0 * x + 19607415.0 / 483977.0) / 255.0;
+    } else {
+        return 1.0;
+    }
 }
 
-vec3 cam(vec2 uv, vec3 ro, vec3 cu, vec3 cv) {
-    vec3 rov = normalize(cv-ro);
-    vec3 u = normalize(cross(cu, rov));
-    vec3 v = normalize(cross(rov, u));
-    float fov = 3.0;
-    return normalize(rov + fov*u*uv.x + fov*v*uv.y);
+float colormap_blue(float x) {
+    if (x < 0.0) {
+        return 54.0 / 255.0;
+    } else if (x < 7249.0 / 82979.0) {
+        return (829.79 * x + 54.51) / 255.0;
+    } else if (x < 20049.0 / 82979.0) {
+        return 127.0 / 255.0;
+    } else if (x < 327013.0 / 810990.0) {
+        return (792.0224934136139 * x - 64.36479073560233) / 255.0;
+    } else {
+        return 1.0;
+    }
+}
+
+vec4 colormap(float x) {
+    return vec4(colormap_red(x), colormap_green(x), colormap_blue(x), 1.0);
+}
+
+// --- Noise and fbm ---
+float rand(vec2 n) { 
+    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+}
+
+float noise(vec2 p){
+    vec2 ip = floor(p);
+    vec2 u = fract(p);
+    u = u*u*(3.0-2.0*u);
+
+    float res = mix(
+        mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
+        mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
+    return res*res;
+}
+
+const mat2 mtx = mat2( 0.80,  0.60, -0.60,  0.80 );
+
+float fbm( vec2 p )
+{
+    float f = 0.0;
+
+    f += 0.500000*noise( p + u_time  ); p = mtx*p*2.02;
+    f += 0.031250*noise( p ); p = mtx*p*2.01;
+    f += 0.250000*noise( p ); p = mtx*p*2.03;
+    f += 0.125000*noise( p ); p = mtx*p*2.01;
+    f += 0.062500*noise( p ); p = mtx*p*2.04;
+    f += 0.015625*noise( p + sin(u_time) );
+
+    return f/0.96875;
+}
+
+float pattern( in vec2 p )
+{
+	return fbm( p + fbm( p + fbm( p ) ) );
 }
 
 void main() {
-    float t = u_time * 2.5;
-    vec2 si = u_resolution.xy;
-    vec2 uv = (2.0 * gl_FragCoord.xy - si) / min(si.x, si.y);
-    vec3 ro = vec3(0.0);
-    ro.y = sin(t * .2) * 15.0 + 15.0;
-    ro.x = sin(t * .5) * 5.0;
-    ro.z = t * 5.0;
-    vec3 rd = cam(uv, ro, vec3(0,1,0), ro + vec3(0,0,1));
-    float s = 1.0, h = .15, td = 0.0, d = 1.0, dd = 0.0, w;
-    float var = 0.03;
-
-    // Fewer raymarch steps for speed!
-    for(float i=0.; i<40.; i++) {
-        if(s<0.01||d>500.||td>.95) break;
-        s = map(ro + rd*d) * (s>0.001?var:.2);
-        if (s < h) {
-            w = (1.0-td) * (h-s)*i/40.0;
-            td += w;
-        }
-        dd += 0.012;
-        td += 0.005;
-        s = max(s, 0.05);
-        d += s;
-    }
-
-    float fog = 1.0 - exp(-0.001*d*d);
-    float col = td/dd;
-    col = mix(col, fog, 0.7);
-
-    // Vignette
-    vec2 q = gl_FragCoord.xy / si;
-    col *= 0.5 + 0.5 * pow(16.0*q.x*q.y*(1.0-q.x)*(1.0-q.y), 0.25);
-
-    gl_FragColor = vec4(vec3(col), 1.0);
+    vec2 uv = gl_FragCoord.xy / u_resolution.x;
+    float shade = pattern(uv);
+    gl_FragColor = vec4(colormap(shade).rgb, shade);
 }
 
-
-    
+ 
 
       </script>
   <script>
