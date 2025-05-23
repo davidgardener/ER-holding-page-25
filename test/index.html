@@ -1,4 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Coming Soon</title>
+  <link rel="icon" type="image/png" href="../ERfavicon.png">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+      background: #f9f9f9;
+      overflow: hidden;
+    }
 
+    #glsl-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      display: block;
+      pointer-events: none; /* allows clicks through the canvas */
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    img {
+      width: 50vw;
+      max-width: 300px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+    }
+
+    p {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glsl-bg"></canvas>
+  <div class="container">
+    <img src="../logo.png" alt="Site Logo">
+    <h1>EXPANDED REALITIES</h1>
+    <h2>Website is Coming Soon</h2>
+    <p>Stay tuned!</p>
+  </div>
+  <script id="fragShader" type="x-shader/x-fragment">
+
+    
+//---    
 
 
 
