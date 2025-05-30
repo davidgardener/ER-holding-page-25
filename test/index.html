@@ -63,7 +63,9 @@
   </div>
 
 <canvas id="glcanvas"></canvas>
-<script>
+
+
+  <script>
 const vertexShaderSource = `
   attribute vec2 a_position;
   void main() {
@@ -160,10 +162,35 @@ gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
 const iResolution = gl.getUniformLocation(program, "iResolution");
 const iTime = gl.getUniformLocation(program, "iTime");
 
-function render(time) {
-  gl.uniform2f(iResolution, canvas.width, canvas.height);
-  gl.uniform1f(iTime, time * 0.001);
+// Ping-pong loop state
+const loopDuration = 4.0;      // forward duration in seconds
+const reverseDuration = 1.0;   // reverse duration in seconds
+let baseTime = 0;
+let reverseStartTime = 0;
+let reversing = false;
 
+function render(realTime) {
+  const time = realTime * 0.001;
+  let t;
+
+  if (!reversing && (time - baseTime) >= loopDuration) {
+    reversing = true;
+    reverseStartTime = time;
+  }
+
+  if (reversing) {
+    t = loopDuration - (time - reverseStartTime);
+    if (t <= 0.0) {
+      reversing = false;
+      baseTime = time;
+      t = 0.0;
+    }
+  } else {
+    t = time - baseTime;
+  }
+
+  gl.uniform2f(iResolution, canvas.width, canvas.height);
+  gl.uniform1f(iTime, t);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
   requestAnimationFrame(render);
 }
