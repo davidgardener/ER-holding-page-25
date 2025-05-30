@@ -58,148 +58,84 @@
     <h2>Coming Soon</h2>
     <p>Stay tuned!</p>
   </div>
-  <script id="fragShader" type="x-shader/x-fragment">
 
 
-#ifdef GL_ES
-precision mediump float;
-#endif
+<script type="module">
+import * as THREE from 'https://cdn.skypack.dev/three@0.152.2';
 
-uniform float u_time;
-uniform vec2 u_resolution;
+const scene = new THREE.Scene();
+const camera = new THREE.Camera();
+camera.position.z = 1;
 
-float colormap_red(float x) {
-    if (x < 0.0) return 54.0/255.0;
-    else if (x < 20049.0/82979.0) return (829.79*x+54.51)/255.0;
-    else return 1.0;
-}
-float colormap_green(float x) {
-    if (x < 20049.0/82979.0) return 0.0;
-    else if (x < 327013.0/810990.0) return (8546482679670.0/10875673217.0*x-2064961390770.0/10875673217.0)/255.0;
-    else if (x <= 1.0) return (103806720.0/483977.0*x+19607415.0/483977.0)/255.0;
-    else return 1.0;
-}
-float colormap_blue(float x) {
-    if (x < 0.0) return 54.0/255.0;
-    else if (x < 7249.0/82979.0) return (829.79*x+54.51)/255.0;
-    else if (x < 20049.0/82979.0) return 127.0/255.0;
-    else if (x < 327013.0/810990.0) return (792.0224934136139*x-64.36479073560233)/255.0;
-    else return 1.0;
-}
-vec4 colormap(float x) {
-    return vec4(colormap_red(x), colormap_green(x), colormap_blue(x), 1.0);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const uniforms = {
+  iTime: { value: 0 },
+  iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+};
+
+const fragmentShader = `
+#define size 25.0
+
+vec2 Hash12(float t)
+{
+    float x = fract(sin(t * 674.3) * 453.2);
+    float y = fract(sin(t * 2674.3) * 453.2);
+    return vec2(x, y);
 }
 
-float rand(vec2 n) { 
-    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
-}
-float noise(vec2 p){
-    vec2 ip = floor(p);
-    vec2 u = fract(p);
-    u = u*u*(3.0-2.0*u);
-    float res = mix(
-        mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
-        mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
-    return res*res;
-}
-const mat2 mtx = mat2(0.80, 0.60, -0.60, 0.80);
-float fbm(vec2 p) {
-    float f = 0.0;
-    f += 0.6 * noise(p + u_time); p = mtx * p * 2.0;
-    f += 0.3 * noise(p); p = mtx * p * 2.0;
-    f += 0.1 * noise(p);
-    return f / 1.0;
-}
-float pattern(vec2 p) {
-    return fbm(p + fbm(p));
-}
+void mainImage(out vec4 fragColor, in vec2 fragCoord);
+
 void main() {
-    vec2 uv = gl_FragCoord.xy / u_resolution.x;
-    float shade = pattern(uv);
-    gl_FragColor = vec4(colormap(shade).rgb, shade);
+    vec4 fragColor;
+    mainImage(fragColor, gl_FragCoord.xy);
+    gl_FragColor = fragColor;
 }
 
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
+{
+    vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+    vec3 col = vec3(0.0);
 
- 
-
-      </script>
-  <script>
-    // GLSL full screen background setup
-    const canvas = document.getElementById('glsl-bg');
-    const gl = canvas.getContext('webgl');
-    const vertexShaderSource = `
-      attribute vec2 a_position;
-      void main() {
-        gl_Position = vec4(a_position, 0, 1);
-      }
-    `;
-    const fragShaderSource = document.getElementById('fragShader').textContent;
-
-    function createShader(type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        throw new Error(gl.getShaderInfoLog(shader));
-      }
-      return shader;
+    for (float i = 0.0; i < size; i++)
+    {
+        vec2 dir = Hash12(i * Hash12(uv.x).x - sin(Hash12(uv.y).x)) - 0.5;
+        float t = fract(iTime * 0.05);
+        float d = length(uv - dir * (t + uv.x * t * uv.y));
+        float brightness = 0.002;
+        col += vec3(brightness / d);
     }
 
-    function createProgram(vsSource, fsSource) {
-      const program = gl.createProgram();
-      const vShader = createShader(gl.VERTEX_SHADER, vsSource);
-      const fShader = createShader(gl.FRAGMENT_SHADER, fsSource);
-      gl.attachShader(program, vShader);
-      gl.attachShader(program, fShader);
-      gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        throw new Error(gl.getProgramInfoLog(program));
-      }
-      return program;
-    }
+    fragColor = vec4(vec3(1.0) - col * 2.0, 1.0);
+}
+`;
 
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      canvas.style.width = window.innerWidth + 'px';
-      canvas.style.height = window.innerHeight + 'px';
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    }
+const material = new THREE.ShaderMaterial({
+  fragmentShader,
+  uniforms,
+});
 
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+const geometry = new THREE.PlaneGeometry(2, 2);
+const mesh = new THREE.Mesh(geometry, material);
+scene.add(mesh);
 
-    const program = createProgram(vertexShaderSource, fragShaderSource);
-    gl.useProgram(program);
+function animate(time) {
+  uniforms.iTime.value = time * 0.001;
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
 
-    // Fullscreen quad
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1,
-      1, -1,
-      -1, 1,
-      -1, 1,
-      1, -1,
-      1, 1
-    ]), gl.STATIC_DRAW);
+window.addEventListener('resize', () => {
+  uniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 
-    const positionLoc = gl.getAttribLocation(program, 'a_position');
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+  
 
-    // Uniforms
-    const u_time = gl.getUniformLocation(program, 'u_time');
-    const u_resolution = gl.getUniformLocation(program, 'u_resolution');
-
-    function render(time) {
-      gl.uniform1f(u_time, time * 0.001);
-      gl.uniform2f(u_resolution, canvas.width, canvas.height);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-      requestAnimationFrame(render);
-    }
-    render(0);
-  </script>
+  
 </body>
 </html>
