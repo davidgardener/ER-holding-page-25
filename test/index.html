@@ -93,7 +93,7 @@ const fragmentShaderSource = `
 
     for(float i = 0.0; i < size; i++) {
       vec2 dir = Hash12(i * Hash12(uv.x).x - sin(Hash12(uv.y).x)) - 0.5;
-      float t = fract(iTime * 0.05);
+      float t = fract(iTime * 0.15);
       float d = length(uv - dir * (t + uv.x * t * uv.y));
       float brightness = 0.002;
       col += vec3(brightness / d);
@@ -163,7 +163,7 @@ const iResolution = gl.getUniformLocation(program, "iResolution");
 const iTime = gl.getUniformLocation(program, "iTime");
 
 // Ping-pong loop state
-const loopDuration = 4.0;      // forward duration in seconds
+const loopDuration = 8.0;      // forward duration in seconds
 const reverseDuration = 1.0;   // reverse duration in seconds
 let baseTime = 0;
 let reverseStartTime = 0;
